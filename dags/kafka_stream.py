@@ -1,3 +1,4 @@
+import time
 from datetime import datetime
 from airflow import DAG
 from airflow.operators.python import PythonOperator
@@ -36,12 +37,22 @@ def format_data(res):
 def stream_data():
     import json
     from kafka import KafkaProducer
-    raw = get_data()
-    data = format_data(raw)
+    import logging
 
+    start_time = time.time()
     producer = KafkaProducer(bootstrap_servers="broker:29092", max_block_ms=5000)
-    producer.send('user_details', json.dumps(data).encode('utf-8'))
-    print(json.dumps(data, indent=3))
+
+    while True:
+        if time.time() > start_time + 60:
+            break
+        try:
+            raw = get_data()
+            data = format_data(raw)
+            producer.send('user_details', json.dumps(data).encode('utf-8'))
+            print(json.dumps(data, indent=3))
+        except Exception as e:
+            logging.error(f"an error occurred: {e}")
+            continue
 
 
 with DAG('user_automation',
@@ -50,7 +61,8 @@ with DAG('user_automation',
          catchup=False) as dag:
     streaming_task = PythonOperator(
         task_id='stream_data_from_api',
-        python_callable=stream_data
+        python_callable=stream_data,
+        dag=dag
     )
 
-stream_data()
+# stream_data()
