@@ -8,10 +8,8 @@ default_args = {
 }
 
 
-
 def get_data():
     import requests
-    import json
     res = requests.get("https://randomuser.me/api/")
     res = res.json()
     res = res['results'][0]
@@ -41,20 +39,18 @@ def stream_data():
     raw = get_data()
     data = format_data(raw)
 
-    producer = KafkaProducer(bootstrap_servers="localhost:9092", max_block_ms=5000)
-
+    producer = KafkaProducer(bootstrap_servers="broker:29092", max_block_ms=5000)
     producer.send('user_details', json.dumps(data).encode('utf-8'))
     print(json.dumps(data, indent=3))
 
 
-# with DAG('user_automation',
-#          default_args=default_args,
-#          schedule_interval='@daily',
-#          catchup=False) as dag:
-#
-#     streaming_task = PythonOperator(
-#         task_id='stream_data_from_api',
-#         python_callable=stream_data
-#     )
+with DAG('user_automation',
+         default_args=default_args,
+         schedule='@daily',
+         catchup=False) as dag:
+    streaming_task = PythonOperator(
+        task_id='stream_data_from_api',
+        python_callable=stream_data
+    )
 
 stream_data()
